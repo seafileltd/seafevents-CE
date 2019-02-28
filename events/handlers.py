@@ -13,6 +13,7 @@ from seaserv import get_org_id_by_repo_id, seafile_api, get_commit
 from seafobj import CommitDiffer, commit_mgr, fs_mgr
 from seafobj.commit_differ import DiffEntry
 from seafevents.events.db import save_user_activity, save_filehistory, update_user_activity_timestamp
+from change_file_path import ChangeFilePathHandler
 from seafevents.app.config import appconfig
 from .models import Activity
 
@@ -43,6 +44,18 @@ def RepoUpdateEventHandler(session, msg):
                                   True, True)
             added_files, deleted_files, added_dirs, deleted_dirs, modified_files,\
                     renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff_to_unicode()
+
+            if renamed_files or renamed_dirs or moved_files or moved_dirs:
+                changer = ChangeFilePathHandler()
+                for r_file in renamed_files:
+                    changer.update_db_records(repo_id, r_file.path, r_file.new_path, 0)
+                for r_dir in renamed_dirs:
+                    changer.update_db_records(repo_id, r_dir.path, r_dir.new_path, 1)
+                for m_file in moved_files:
+                    changer.update_db_records(repo_id, m_file.path, m_file.new_path, 0)
+                for m_dir in moved_dirs:
+                    changer.update_db_records(repo_id, m_dir.path, m_dir.new_path, 1)
+                changer.close_session()
 
             users = []
             org_id = get_org_id_by_repo_id(repo_id)
